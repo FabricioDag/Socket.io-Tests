@@ -1,4 +1,3 @@
-// server.js
 const express = require("express");
 const http = require("http");
 const socketIo = require("socket.io");
@@ -15,62 +14,82 @@ const io = socketIo(server, {
   }
 });
 
-// Ativa o CORS para o frontend
 app.use(cors({
-  origin: "https://socket-io-tests-front.onrender.com", // URL do seu frontend
+  origin: "https://socket-io-tests-front.onrender.com",
   methods: ["GET", "POST"],
   credentials: true
 }));
 
-const PORT = 3001;
+// Armazenamento de salas
 const rooms = {};
 
-// Função para adicionar jogador a uma sala ou criar nova se não existir
-function joinRoom(socket, roomId) {
-  if (!rooms[roomId]) {
-    rooms[roomId] = [];
-  }
-  if (rooms[roomId].length < 2) {
-    rooms[roomId].push(socket.id);
+io.on("connection", (socket) => {
+  console.log(`Usuário conectado: ${socket.id}`);
+
+  // Entrar na sala
+  socket.on("joinRoom", ({ roomId, userId }) => {
     socket.join(roomId);
-    socket.emit('roomJoined', roomId);
-    io.to(roomId).emit('playerJoined', { players: rooms[roomId].length });
-
-    // Aviso se a sala estiver cheia
-    if (rooms[roomId].length === 2) {
-      io.to(roomId).emit('roomFull', 'Room is now full!');
+    if (!rooms[roomId]) {
+      rooms[roomId] = {
+        players: {},
+        scores: { player1: 0, player2: 0 },
+        roundResults: []
+      };
     }
-  } else {
-    socket.emit('roomError', 'Room is full');
+    rooms[roomId].players[userId] = socket.id;
+    io.to(roomId).emit("updateScores", rooms[roomId]);
+  });
+
+  // Jogar uma rodada
+  socket.on("playRound", ({ roomId, userId, choice }) => {
+    const opponentId = Object.keys(rooms[roomId].players).find(id => id !== userId);
+    const opponentChoice = rooms[roomId].players[opponentId]?.choice;
+
+    if (opponentChoice) {
+      const result = determineWinner(choice, opponentChoice);
+      rooms[roomId].roundResults.push({ userId, choice, result });
+      if (result === 'win') {
+        rooms[roomId].scores[userId]++;
+      } else if (result === 'lose') {
+        rooms[roomId].scores[opponentId]++;
+      }
+
+      io.to(roomId).emit("updateScores", rooms[roomId]);
+      checkGameOver(roomId);
+    } else {
+      rooms[roomId].players[userId].choice = choice; // Guarda a escolha do usuário
+    }
+  });
+
+  // Verificar se o jogo acabou
+  function checkGameOver(roomId) {
+    const scores = rooms[roomId].scores;
+    if (scores.player1 === 3 || scores.player2 === 3) {
+      const winner = scores.player1 === 3 ? "player1" : "player2";
+      io.to(roomId).emit("gameOver", { winner });
+      delete rooms[roomId]; // Limpa a sala após o jogo
+    }
   }
-}
 
-// Evento de conexão e manipulação de salas
-io.on('connection', (socket) => {
-  console.log('Novo usuário conectado:', socket.id);
-
-  // Ingresso via código de sala
-  socket.on('joinWithCode', (roomId) => {
-    joinRoom(socket, roomId);
-  });
-
-  // Ingresso aleatório em uma sala vaga
-  socket.on('joinRandom', () => {
-    let roomId = Object.keys(rooms).find((id) => rooms[id].length < 2);
-    if (!roomId) roomId = socket.id; // Criar nova sala
-    joinRoom(socket, roomId);
-  });
-
-  // Evento de desconexão
-  socket.on('disconnect', () => {
-    for (const [roomId, players] of Object.entries(rooms)) {
-      rooms[roomId] = players.filter((id) => id !== socket.id);
-      if (rooms[roomId].length === 0) delete rooms[roomId];
+  // Determinar o vencedor da rodada
+  function determineWinner(choice1, choice2) {
+    if (choice1 === choice2) return "draw"; // Empate
+    if (
+      (choice1 === "rock" && choice2 === "scissors") ||
+      (choice1 === "scissors" && choice2 === "paper") ||
+      (choice1 === "paper" && choice2 === "rock")
+    ) {
+      return "win"; // O jogador 1 ganha
     }
-    console.log('Usuário desconectado:', socket.id);
+    return "lose"; // O jogador 2 ganha
+  }
+
+  // Desconectar
+  socket.on("disconnect", () => {
+    console.log(`Usuário desconectado: ${socket.id}`);
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`Servidor rodando em http://localhost:${PORT}`);
+server.listen(3001, () => {
+  console.log("Servidor rodando na porta 3001");
 });
