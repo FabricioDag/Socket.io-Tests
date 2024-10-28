@@ -14,8 +14,9 @@ const io = socketIo(server, {
   }
 });
 
+// Ativa o CORS para o frontend
 app.use(cors({
-  origin: "https://socket-io-tests-front.onrender.com",
+  origin: "https://socket-io-tests-front.onrender.com", // URL do seu frontend
   methods: ["GET", "POST"],
   credentials: true
 }));
