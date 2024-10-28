@@ -31,6 +31,19 @@ const GameComponent = () => {
 
   return (
     <div>
+      <>
+      <h2>Conectar a uma Sala</h2>
+      <input
+        type="text"
+        placeholder="Código da Sala"
+        value={roomCode}
+        onChange={(e) => setRoomCode(e.target.value)}
+      />
+      <button onClick={joinRoomWithCode}>Entrar com Código</button>
+      <button onClick={joinRandomRoom}>Entrar em Sala Aleatória</button>
+      <p>Status: {status}</p>
+      </>
+
       <h1>Pedra, Papel ou Tesoura</h1>
       <h2>Placar:</h2>
       <p>Jogador 1: {scores.player1}</p>
