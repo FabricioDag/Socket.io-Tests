@@ -1,11 +1,26 @@
 // server.js
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
+const express = require("express");
+const http = require("http");
+const socketIo = require("socket.io");
+const cors = require("cors");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = socketIo(server, {
+  cors: {
+    origin: "https://socket-io-tests-front.onrender.com", // URL do seu frontend
+    methods: ["GET", "POST"],
+    allowedHeaders: ["my-custom-header"],
+    credentials: true
+  }
+});
+
+// Ativa o CORS para o frontend
+app.use(cors({
+  origin: "https://socket-io-tests-front.onrender.com", // URL do seu frontend
+  methods: ["GET", "POST"],
+  credentials: true
+}));
 
 const PORT = 3001;
 const rooms = {};
