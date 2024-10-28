@@ -1,37 +1,39 @@
-import { useEffect, useState } from 'react';
-import io from 'socket.io-client';
+// client/src/App.js
+import React, { useState } from "react";
+import io from "socket.io-client";
 
-const socket = io("https://seu-backend.onrender.com");
+import {GameComponent} from './components'
 
-const GameComponent = () => {
-  const [roomId, setRoomId] = useState('');
-  const [userId, setUserId] = useState('');
-  const [scores, setScores] = useState({ player1: 0, player2: 0 });
-  const [winner, setWinner] = useState('');
+const socket = io("http://localhost:3001");
 
-  useEffect(() => {
-    socket.emit("joinRoom", { roomId, userId });
+function App() {
+  const [roomCode, setRoomCode] = useState("");
+  const [roomId, setRoomId] = useState(null);
+  const [status, setStatus] = useState("Desconectado");
 
-    socket.on("updateScores", (data) => {
-      setScores(data.scores);
-    });
-
-    socket.on("gameOver", ({ winner }) => {
-      setWinner(winner);
-    });
-
-    return () => {
-      socket.disconnect();
-    };
-  }, [roomId, userId]);
-
-  const playRound = (choice) => {
-    socket.emit("playRound", { roomId, userId, choice });
+  const joinRoomWithCode = () => {
+    socket.emit("joinWithCode", roomCode);
   };
 
+  const joinRandomRoom = () => {
+    socket.emit("joinRandom");
+  };
+
+  socket.on("roomJoined", (id) => {
+    setRoomId(id);
+    setStatus("Conectado à sala: " + id);
+  });
+
+  socket.on("roomFull", (message) => {
+    setStatus(message);
+  });
+
+  socket.on("roomError", (message) => {
+    setStatus(message);
+  });
+
   return (
-    <div>
-      <>
+    <div className="App">
       <h2>Conectar a uma Sala</h2>
       <input
         type="text"
@@ -42,18 +44,14 @@ const GameComponent = () => {
       <button onClick={joinRoomWithCode}>Entrar com Código</button>
       <button onClick={joinRandomRoom}>Entrar em Sala Aleatória</button>
       <p>Status: {status}</p>
-      </>
 
-      <h1>Pedra, Papel ou Tesoura</h1>
-      <h2>Placar:</h2>
-      <p>Jogador 1: {scores.player1}</p>
-      <p>Jogador 2: {scores.player2}</p>
-      <button onClick={() => playRound('rock')}>Pedra</button>
-      <button onClick={() => playRound('paper')}>Papel</button>
-      <button onClick={() => playRound('scissors')}>Tesoura</button>
-      {winner && <h2>O vencedor é: {winner}</h2>}
+      {status!=='Desconectado'?(
+        <GameComponent/>
+      ):(
+        <></>
+      )}
     </div>
   );
-};
+}
 
-export default GameComponent;
+export default App;
